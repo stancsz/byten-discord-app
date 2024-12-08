@@ -1,0 +1,7 @@
+python-dotenv
+Flask
+discord.py
+pyyaml
+requests
+openai
+lyricsgenius

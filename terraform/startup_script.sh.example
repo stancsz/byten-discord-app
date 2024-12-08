@@ -1,0 +1,31 @@
+#!/bin/bash
+# Update package list and install prerequisites
+apt-get update -y
+apt-get install -y apt-transport-https ca-certificates curl software-properties-common git
+
+# Install Docker
+curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+apt-get update -y
+apt-get install -y docker-ce docker-compose
+
+# Enable and start Docker service
+systemctl enable docker
+systemctl start docker
+
+# Clone the repository
+git clone https://github.com/stancsz/byten-discord-app /opt/byten-discord-app
+
+# Navigate to the cloned directory
+cd /opt/byten-discord-app
+
+# Create a .env file with the environment variables
+cat <<EOF > .env
+DISCORD_BOT_TOKEN=
+DISCORD_CHANNEL_ID=
+OPENAI_API_KEY=
+SYSTEM_MESSAGE_URL=
+EOF
+
+# Build and run the Docker app in detached mode
+docker-compose up -d

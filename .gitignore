@@ -1,0 +1,41 @@
+venv/
+.env
+*.pyc
+
+# Ignore Terraform state files
+*.tfstate
+*.tfstate.backup
+
+# Ignore local Terraform variables
+terraform.tfvars
+terraform.tfvars.json
+
+# Ignore sensitive files
+*.pem
+*.key
+
+# Ignore environment-specific configurations
+.env
+*.env
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+
+# Ignore directories
+.terraform/
+.idea/
+.vscode/
+
+# Combine with .gitignore
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+.terraform/
+
+*/startup_script.sh
+__pycache__
+*.terraform*
