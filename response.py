@@ -33,7 +33,7 @@ def get_ai_response(prompt, context):
     presence_penalty = round(random.uniform(0.1, 0.5), 2)
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model= os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=[
                 {"role": "system", "content": system_message},
                 {

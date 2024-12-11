@@ -69,7 +69,7 @@ async def on_message(message):
         async for msg in message.channel.history(limit=5):  # Fetch last 5 messages
             messages.append(msg)
         # Check the last 3 messages for a thumbs-up (content or reaction)
-        for msg in messages[:3]:  # Only consider the last 3 messages
+        for msg in messages[:2]:  # Only consider the last 3 messages
             if "👍" in msg.content or any(reaction.emoji == "👍" for reaction in msg.reactions):
                 # Exit early if a thumbs-up is found
                 print("Thumbs up found in the last 3 messages. Exiting.")
@@ -80,7 +80,8 @@ async def on_message(message):
         for msg in reversed(messages):  # Reverse to show oldest to newest
             context += f"{msg.author.display_name}: {msg.content}\n"
 
-        response = get_ai_response("participate in the chat", str(context))
+        prompt=os.getenv("MSG_PROMPT", "participate in the chat, response must include lyrics, styles, title")
+        response = get_ai_response(prompt, str(context))
 
         # Send the response in chunks of 2000 characters or fewer
         for chunk in [response[i:i + 2000] for i in range(0, len(response), 2000)]:
