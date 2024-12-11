@@ -17,6 +17,7 @@ terraform.tfvars.json
 # Ignore environment-specific configurations
 .env
 *.env
+*.env.*
 
 # Ignore logs and temporary files
 *.log

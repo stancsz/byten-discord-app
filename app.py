@@ -26,7 +26,7 @@ async def random_pokes():
         return
 
     while not bot.is_closed():
-        sleep_duration = random.randint(21600, 28800)
+        sleep_duration = int(os.getenv('SLEEP_DURATION')) if os.getenv('SLEEP_DURATION') else random.randint(21600, 28800)
         print(f"Sleeping for {sleep_duration} seconds.")
         await asyncio.sleep(sleep_duration)
         try:
@@ -40,7 +40,8 @@ async def random_pokes():
                 context += f"{msg.author.display_name}: {msg.content}\n"
 
             response = get_ai_response(
-                "If no one else replied since you last post asking for more work, independently come up with some lyrics ideas to work on it. Otherwise, You're ready to work, let your boss know you want a new task.",
+                # "If no one else replied since you last post asking for more work, independently come up with some lyrics ideas to work on it. Otherwise, You're ready to work, let your boss know you want a new task.",
+                os.getenv("POKE_PROMPT"),
                 str(context)
             )
 
@@ -67,6 +68,12 @@ async def on_message(message):
         messages = []
         async for msg in message.channel.history(limit=5):  # Fetch last 5 messages
             messages.append(msg)
+        # Check the last 3 messages for a thumbs-up (content or reaction)
+        for msg in messages[:3]:  # Only consider the last 3 messages
+            if "👍" in msg.content or any(reaction.emoji == "👍" for reaction in msg.reactions):
+                # Exit early if a thumbs-up is found
+                print("Thumbs up found in the last 3 messages. Exiting.")
+                return
 
         # Format the response
         context = "Here are the last 5 messages in this channel:\n\n"
