@@ -70,7 +70,7 @@ async def on_message(message):
             messages.append(msg)
         # Check the last 3 messages for a thumbs-up (content or reaction)
         for msg in messages[:2]:  # Only consider the last 3 messages
-            if "👍" in msg.content or any(reaction.emoji == "👍" for reaction in msg.reactions):
+            if "👍" in msg.content or "good job" in "👍" in msg.content.lower() or any(reaction.emoji == "👍" for reaction in msg.reactions):
                 # Exit early if a thumbs-up is found
                 print("Thumbs up found in the last 3 messages. Exiting.")
                 return
