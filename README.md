@@ -26,3 +26,14 @@
    ```
 
    Ensure you have a `.env` file containing the necessary environment variables, such as `DISCORD_BOT_TOKEN` and `SYSTEM_MESSAGE_URL`.
+
+
+```
+sudo su
+docker stop $(docker ps -q)
+
+docker build -t byten .
+docker run -d --restart on-failure:3 --env-file .env byten
+##
+docker run --restart on-failure:3 --env-file .env byten
+```
