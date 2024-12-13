@@ -1,13 +1,32 @@
 import os
-import asyncio
-import random
+import re
 import discord
 from discord.ext import commands
-from response import get_ai_response
 from dotenv import load_dotenv
+from openai import OpenAI
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Environment variables (all centralized here for easy tracking)
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", "").strip()
+MSG_PROMPT = os.getenv("MSG_PROMPT", "").strip()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+MAX_RESPONSE_CHARS = int(os.getenv("MAX_RESPONSE_CHARS", 2000))
+ALLOW_BOTS = os.getenv("ALLOW_BOTS", "false").lower() == "true"
+NAME_PATTERN = os.getenv("NAME_PATTERN", ".*")
+
+# OpenAI parameters with defaults
+TEMPERATURE = float(os.getenv("TEMPERATURE", 1))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", 2048))
+TOP_P = float(os.getenv("TOP_P", 1))
+FREQUENCY_PENALTY = float(os.getenv("FREQUENCY_PENALTY", 0))
+PRESENCE_PENALTY = float(os.getenv("PRESENCE_PENALTY", 0))
+
+# Ensure required environment variables are set
+if not DISCORD_BOT_TOKEN:
+    raise ValueError("DISCORD_BOT_TOKEN is not set in environment variables")
 
 # Set up the bot with the necessary intents
 intents = discord.Intents.default()
@@ -16,82 +35,76 @@ intents.message_content = True  # Enable access to message content
 # Initialize the bot with a command prefix and intents
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-async def random_pokes():
-    await bot.wait_until_ready()
-    channel_id = int(os.getenv("DISCORD_CHANNEL_ID"))
-    channel = bot.get_channel(channel_id)
+def ai_response(prompt, messages):
+    """
+    Fetch an AI response based on the given prompt and messages.
+    """
+    client = OpenAI()
 
-    if channel is None:
-        print("Channel not found. Please check the channel ID.")
-        return
+    # Build the final message list, excluding empty prompts
+    final_messages = []
+    if SYSTEM_PROMPT:
+        final_messages.append({"role": "system", "content": SYSTEM_PROMPT})
+    final_messages.extend(messages)
+    if prompt:
+        final_messages.append({"role": "user", "content": prompt})
 
-    while not bot.is_closed():
-        sleep_duration = int(os.getenv('SLEEP_DURATION')) if os.getenv('SLEEP_DURATION') else random.randint(21600, 28800)
-        print(f"Sleeping for {sleep_duration} seconds.")
-        await asyncio.sleep(sleep_duration)
-        try:
-            messages = []
-            async for msg in channel.history(limit=5):  # Fetch last 5 messages
-                messages.append(msg)
+    try:
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=final_messages,
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            top_p=TOP_P,
+            frequency_penalty=FREQUENCY_PENALTY,
+            presence_penalty=PRESENCE_PENALTY,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"Error in ai_response: {str(e)}")
+        return "I couldn't process your request. Please try again later."
 
-            # Format the response
-            context = "Here are the last 5 messages in this channel:\n\n"
-            for msg in reversed(messages):  # Reverse to show oldest to newest
-                context += f"{msg.author.display_name}: {msg.content}\n"
-
-            response = get_ai_response(
-                # "If no one else replied since you last post asking for more work, independently come up with some lyrics ideas to work on it. Otherwise, You're ready to work, let your boss know you want a new task.",
-                os.getenv("POKE_PROMPT"),
-                str(context)
-            )
-
-            # Send the response in chunks of 2000 characters or fewer
-            for chunk in [response[i:i + 2000] for i in range(0, len(response), 2000)]:
-                await channel.send(chunk)
-        except Exception as e:
-            print(f"Error fetching messages: {str(e)}")
-            await channel.send("I couldn't fetch the messages. Please try again later.")
+def split_text(text, max_length=MAX_RESPONSE_CHARS):
+    """
+    Split text into chunks of up to `max_length`, breaking on the last newline within the limit.
+    """
+    chunks = []
+    while len(text) > max_length:
+        split_index = text.rfind('\n', 0, max_length)
+        if split_index == -1:
+            split_index = max_length
+        chunks.append(text[:split_index])
+        text = text[split_index:].lstrip('\n')
+    chunks.append(text)
+    return chunks
 
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
-    bot.loop.create_task(random_pokes())  # Start the random pokes task
 
 @bot.event
 async def on_message(message):
-    # Prevent the bot from responding to its own messages
-    if message.author == bot.user:
+    # Check if the sender is allowed based on bot status and name pattern
+    if (not ALLOW_BOTS and message.author.bot) or not re.match(NAME_PATTERN, message.author.name):
         return
 
-    # Fetch and relay the last 5 messages
     try:
         messages = []
-        async for msg in message.channel.history(limit=5):  # Fetch last 5 messages
-            messages.append(msg)
-        # Check the last 3 messages for a thumbs-up (content or reaction)
-        for msg in messages[:2]:  # Only consider the last 3 messages
-            if "👍" in msg.content or "good job" in "👍" in msg.content.lower() or any(reaction.emoji == "👍" for reaction in msg.reactions):
-                # Exit early if a thumbs-up is found
-                print("Thumbs up found in the last 3 messages. Exiting.")
-                return
+        async for msg in message.channel.history(limit=5):
+            role = "assistant" if msg.author.bot else "user"
+            messages.insert(0, {  # Insert older messages earlier in the list
+                "role": role,
+                "content": [{"type": "text", "text": msg.content}]
+            })
 
-        # Format the response
-        context = "Here are the last 5 messages in this channel:\n\n"
-        for msg in reversed(messages):  # Reverse to show oldest to newest
-            context += f"{msg.author.display_name}: {msg.content}\n"
+        response = ai_response(MSG_PROMPT, messages)
 
-        prompt=os.getenv("MSG_PROMPT", "participate in the chat, response must include lyrics, styles, title")
-        response = get_ai_response(prompt, str(context))
-
-        # Send the response in chunks of 2000 characters or fewer
-        for chunk in [response[i:i + 2000] for i in range(0, len(response), 2000)]:
+        for chunk in split_text(response):
             await message.channel.send(chunk)
     except Exception as e:
-        print(f"Error fetching messages: {str(e)}")
-        await message.channel.send("I couldn't fetch the messages. Please try again later.")
+        print(f"Error in on_message: {str(e)}")
+        await message.channel.send("I couldn't process the request. Please try again later.")
 
-    # Process commands if any are present
     await bot.process_commands(message)
 
-# Run the bot using the token from the environment variables
-bot.run(os.getenv("DISCORD_BOT_TOKEN"))
+bot.run(DISCORD_BOT_TOKEN)

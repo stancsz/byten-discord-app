@@ -4,4 +4,3 @@ discord.py
 pyyaml
 requests
 openai
-lyricsgenius

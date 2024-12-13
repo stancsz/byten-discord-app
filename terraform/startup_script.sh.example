@@ -1,31 +1,61 @@
 #!/bin/bash
+
+# Exit immediately if a command exits with a non-zero status
+set -e
+
 # Update package list and install prerequisites
+echo "Updating package list and installing prerequisites..."
 apt-get update -y
-apt-get install -y apt-transport-https ca-certificates curl software-properties-common git
+apt-get install -y apt-transport-https ca-certificates curl software-properties-common git lsb-release
 
 # Install Docker
+echo "Installing Docker..."
 curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
 add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
 apt-get update -y
 apt-get install -y docker-ce docker-compose
 
 # Enable and start Docker service
+echo "Enabling and starting Docker service..."
 systemctl enable docker
 systemctl start docker
 
 # Clone the repository
-git clone https://github.com/stancsz/byten-discord-app /opt/byten-discord-app
+REPO_URL="https://github.com/stancsz/byten-discord-app"
+APP_DIR="/opt/byten-discord-app"
+
+echo "Cloning the repository from $REPO_URL to $APP_DIR..."
+if [ ! -d "$APP_DIR" ]; then
+    git clone "$REPO_URL" "$APP_DIR"
+else
+    echo "Directory $APP_DIR already exists. Pulling latest changes..."
+    cd "$APP_DIR"
+    git pull origin main
+fi
 
 # Navigate to the cloned directory
-cd /opt/byten-discord-app
+cd "$APP_DIR"
 
 # Create a .env file with the environment variables
+echo "Creating .env file with placeholders for environment variables..."
 cat <<EOF > .env
 DISCORD_BOT_TOKEN=
-DISCORD_CHANNEL_ID=
 OPENAI_API_KEY=
-SYSTEM_MESSAGE_URL=
+SYSTEM_PROMPT=
+MSG_PROMPT=
+OPENAI_MODEL=gpt-4
+MAX_RESPONSE_CHARS=2000
+ALLOW_BOTS=true
+NAME_PATTERN=.*
+TEMPERATURE=1
+MAX_TOKENS=2048
+TOP_P=1
+FREQUENCY_PENALTY=0
+PRESENCE_PENALTY=0
 EOF
 
 # Build and run the Docker app in detached mode
+echo "Building and running the Docker app in detached mode..."
 docker-compose up -d
+
+echo "Setup complete. Ensure to update the .env file with the correct environment variables."
