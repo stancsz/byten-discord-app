@@ -16,6 +16,8 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 MAX_RESPONSE_CHARS = int(os.getenv("MAX_RESPONSE_CHARS", 2000))
 ALLOW_BOTS = os.getenv("ALLOW_BOTS", "false").lower() == "true"
 NAME_PATTERN = os.getenv("NAME_PATTERN", ".*")
+ALLOWED_CHANNELS = os.getenv("ALLOWED_CHANNELS", "").split(",")  # Comma-separated channel IDs
+ALLOWED_USERS = os.getenv("ALLOWED_USERS", "").split(",")  # Comma-separated user IDs
 
 # OpenAI parameters with defaults
 TEMPERATURE = float(os.getenv("TEMPERATURE", 1))
@@ -78,14 +80,25 @@ def split_text(text, max_length=MAX_RESPONSE_CHARS):
     chunks.append(text)
     return chunks
 
+def should_reply_to_message(message):
+    """
+    Determine if the bot should reply to the given message based on allowed channels, users, bot status, and name pattern.
+    """
+    if ALLOWED_CHANNELS and str(message.channel.id) not in ALLOWED_CHANNELS:
+        return False
+    if ALLOWED_USERS and str(message.author.id) not in ALLOWED_USERS:
+        return False
+    if (not ALLOW_BOTS and message.author.bot) or not re.match(NAME_PATTERN, message.author.name):
+        return False
+    return True
+
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
 
 @bot.event
 async def on_message(message):
-    # Check if the sender is allowed based on bot status and name pattern
-    if (not ALLOW_BOTS and message.author.bot) or not re.match(NAME_PATTERN, message.author.name):
+    if not should_reply_to_message(message):
         return
 
     try:
@@ -94,7 +107,7 @@ async def on_message(message):
             role = "assistant" if msg.author.bot else "user"
             messages.insert(0, {  # Insert older messages earlier in the list
                 "role": role,
-                "content": [{"type": "text", "text": msg.content}]
+                "content": msg.content
             })
 
         response = ai_response(MSG_PROMPT, messages)
