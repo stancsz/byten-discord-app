@@ -16,8 +16,9 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 MAX_RESPONSE_CHARS = int(os.getenv("MAX_RESPONSE_CHARS", 2000))
 ALLOW_BOTS = os.getenv("ALLOW_BOTS", "false").lower() == "true"
 NAME_PATTERN = os.getenv("NAME_PATTERN", ".*")
-ALLOWED_CHANNELS = os.getenv("ALLOWED_CHANNELS", "").split(",")  # Comma-separated channel IDs
-ALLOWED_USERS = os.getenv("ALLOWED_USERS", "").split(",")  # Comma-separated user IDs
+ALLOWED_CHANNELS = [ch.strip() for ch in os.getenv("ALLOWED_CHANNELS", "").split(",") if ch.strip()]  # Comma-separated channel IDs
+ALLOWED_USERS = [usr.strip() for usr in os.getenv("ALLOWED_USERS", "").split(",") if usr.strip()]  # Comma-separated user IDs
+HISTORY_LIMIT = int(os.getenv("HISTORY_LIMIT", 5))  # Default history limit is 5
 
 # OpenAI parameters with defaults
 TEMPERATURE = float(os.getenv("TEMPERATURE", 1))
@@ -52,15 +53,24 @@ def ai_response(prompt, messages):
         final_messages.append({"role": "user", "content": prompt})
 
     try:
-        response = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=final_messages,
-            temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS,
-            top_p=TOP_P,
-            frequency_penalty=FREQUENCY_PENALTY,
-            presence_penalty=PRESENCE_PENALTY,
-        )
+        if "o1" in OPENAI_MODEL:
+            print("System instructions and model configuration are not available yet. Responses may take longer.")
+            if prompt:
+                messages.append({"role": "user", "content": prompt})
+            response = client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=messages
+            )
+        else:
+            response = client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=final_messages,
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS,
+                top_p=TOP_P,
+                frequency_penalty=FREQUENCY_PENALTY,
+                presence_penalty=PRESENCE_PENALTY,
+            )
         return response.choices[0].message.content
     except Exception as e:
         print(f"Error in ai_response: {str(e)}")
@@ -103,7 +113,7 @@ async def on_message(message):
 
     try:
         messages = []
-        async for msg in message.channel.history(limit=5):
+        async for msg in message.channel.history(limit=HISTORY_LIMIT):
             role = "assistant" if msg.author.bot else "user"
             messages.insert(0, {  # Insert older messages earlier in the list
                 "role": role,

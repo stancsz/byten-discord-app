@@ -80,14 +80,14 @@ This project includes:
 
 1. **Build the Docker Image**:
    ```bash
-   docker build -t your-bot-name .
+   docker build -t app .
    ```
 
 2. **Run the Docker Container**:
    ```bash
-   docker run --env-file .env your-bot-name
+   docker run --env-file .env app
    # or
-   docker run -d --restart on-failure:3 --env-file .env your-bot-name
+   docker run -d --restart on-failure:3 --env-file .env app
    ```
 
 
