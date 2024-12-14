@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 from openai import OpenAI
-import requests  # For fetching SYSTEM_PROMPT if it’s a URL
+import requests
 
 
 def setup_environment():
@@ -14,6 +14,14 @@ def setup_environment():
     """
     # Load environment variables from .env file
     load_dotenv()
+    def load_trigger_words(env_var):
+        """
+        Load trigger words from an environment variable and compile them into regex patterns.
+        :param env_var: A comma-separated string of regex patterns.
+        :return: A list of compiled regex patterns.
+        """
+        trigger_words = os.getenv(env_var, "").split(",")
+        return [re.compile(word.strip(), re.IGNORECASE) for word in trigger_words if word.strip()]
 
     # Fetch environment variables with defaults
     DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -36,6 +44,9 @@ def setup_environment():
     FREQUENCY_PENALTY = float(os.getenv("FREQUENCY_PENALTY", 0))
     PRESENCE_PENALTY = float(os.getenv("PRESENCE_PENALTY", 0))
 
+    # Load trigger words as regex patterns
+    TRIGGER_WORDS = load_trigger_words("TRIGGER_WORDS")
+
     # Fetch SYSTEM_PROMPT content if it's a URL
     if SYSTEM_PROMPT.startswith("http://") or SYSTEM_PROMPT.startswith("https://"):
         try:
@@ -51,7 +62,6 @@ def setup_environment():
     if not DISCORD_BOT_TOKEN:
         raise ValueError("DISCORD_BOT_TOKEN is not set in environment variables")
 
-    # Return all configurations as a dictionary
     return {
         "DISCORD_BOT_TOKEN": DISCORD_BOT_TOKEN,
         "SYSTEM_PROMPT": SYSTEM_PROMPT,
@@ -68,8 +78,8 @@ def setup_environment():
         "TOP_P": TOP_P,
         "FREQUENCY_PENALTY": FREQUENCY_PENALTY,
         "PRESENCE_PENALTY": PRESENCE_PENALTY,
+        "TRIGGER_WORDS": TRIGGER_WORDS,
     }
-
 
 # Fetch environment configuration
 config = setup_environment()
@@ -130,18 +140,30 @@ def split_text(text, max_length=config["MAX_RESPONSE_CHARS"]):
 def should_reply_to_message(message):
     """
     Determine if the bot should reply to the given message based on allowed channels, users, bot status,
-    and name pattern.
+    name pattern, and regex-based trigger word or bot mention.
     """
+    # Check if the channel or user is allowed
     if config["ALLOWED_CHANNELS"] and str(message.channel.id) not in config["ALLOWED_CHANNELS"]:
         return False
     if config["ALLOWED_USERS"] and str(message.author.id) not in config["ALLOWED_USERS"]:
         return False
+
+    # Check if bots are allowed and if the name pattern matches
     if (not config["ALLOW_BOTS"] and message.author.bot) or not re.match(
         config["NAME_PATTERN"], message.author.name
     ):
         return False
-    return True
 
+    # Check if the message mentions the bot
+    if bot.user in message.mentions:
+        return True
+
+    # Check if any of the TRIGGER_WORDS regex patterns match the message content
+    for pattern in config["TRIGGER_WORDS"]:
+        if pattern.search(message.content):
+            return True
+
+    return False
 
 @bot.event
 async def on_ready():
