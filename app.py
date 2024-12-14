@@ -95,6 +95,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 def ai_response(prompt, messages):
     """
     Fetch an AI response based on the given prompt and messages.
+    Handles special cases like 'o1' models differently.
     """
     client = OpenAI()
 
@@ -107,16 +108,33 @@ def ai_response(prompt, messages):
         final_messages.append({"role": "user", "content": prompt})
 
     try:
-        response = client.chat.completions.create(
-            model=config["OPENAI_MODEL"],
-            messages=final_messages,
-            temperature=config["TEMPERATURE"],
-            max_tokens=config["MAX_TOKENS"],
-            top_p=config["TOP_P"],
-            frequency_penalty=config["FREQUENCY_PENALTY"],
-            presence_penalty=config["PRESENCE_PENALTY"],
-        )
+        # Special handling for 'o1' models
+        if "o1" in config["OPENAI_MODEL"]:
+            print("Using an o1 model. System instructions and advanced configurations are not supported.")
+            
+            # Adjust messages for 'o1' model compatibility
+            if prompt:
+                messages.append({"role": "user", "content": prompt})
+            
+            response = client.chat.completions.create(
+                model=config["OPENAI_MODEL"],
+                messages=messages  # Pass original messages for compatibility
+            )
+        else:
+            # Standard handling for non-'o1' models
+            response = client.chat.completions.create(
+                model=config["OPENAI_MODEL"],
+                messages=final_messages,  # Pass the full constructed message list
+                temperature=config["TEMPERATURE"],
+                max_tokens=config["MAX_TOKENS"],
+                top_p=config["TOP_P"],
+                frequency_penalty=config["FREQUENCY_PENALTY"],
+                presence_penalty=config["PRESENCE_PENALTY"],
+            )
+
+        # Extract and return the content of the response
         return response.choices[0].message.content
+
     except Exception as e:
         print(f"Error in ai_response: {str(e)}")
         return "I couldn't process your request. Please try again later."
