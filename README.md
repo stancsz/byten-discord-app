@@ -90,6 +90,10 @@ This project includes:
    docker run -d --restart on-failure:3 --env-file .env app
    ```
 
+3. **stop**
+   ```
+   docker stop $(docker ps -q)
+   ```
 
 
 ## Terraform Setup

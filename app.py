@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 from openai import OpenAI
+import requests  # Add requests for handling URL fetching
 
 # Load environment variables from .env file
 load_dotenv()
@@ -26,6 +27,17 @@ MAX_TOKENS = int(os.getenv("MAX_TOKENS", 2048))
 TOP_P = float(os.getenv("TOP_P", 1))
 FREQUENCY_PENALTY = float(os.getenv("FREQUENCY_PENALTY", 0))
 PRESENCE_PENALTY = float(os.getenv("PRESENCE_PENALTY", 0))
+
+# Fetch SYSTEM_PROMPT content if it's a URL
+if SYSTEM_PROMPT.startswith("http://") or SYSTEM_PROMPT.startswith("https://"):
+    try:
+        response = requests.get(SYSTEM_PROMPT)
+        response.raise_for_status()
+        SYSTEM_PROMPT = response.text.strip()
+        print("SYSTEM_PROMPT fetched from URL successfully.")
+    except requests.RequestException as e:
+        print(f"Error fetching SYSTEM_PROMPT from URL: {e}")
+        SYSTEM_PROMPT = ""  # Fallback to empty if fetching fails
 
 # Ensure required environment variables are set
 if not DISCORD_BOT_TOKEN:
