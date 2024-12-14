@@ -187,7 +187,7 @@ async def on_message(message):
             await message.channel.send(chunk)
     except Exception as e:
         print(f"Error in on_message: {str(e)}")
-        await message.channel.send("I couldn't process the request. Please try again later.")
+        await message.channel.send(f"I couldn't process the request. Please try again later. Debug:{str(e)}")
 
     await bot.process_commands(message)
 
