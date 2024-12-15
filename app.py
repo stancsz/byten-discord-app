@@ -168,11 +168,13 @@ async def on_message(message):
         if isinstance(message.channel, discord.Thread):
             thread = message.channel
         else:
-            thread_name = f"Response to {message.author.name}"
+            message_excerpt = message.content[:50]
+            sanitized_excerpt = message_excerpt.replace('\n', ' ').strip()
+            thread_name = f"{sanitized_excerpt}" if sanitized_excerpt else f"Response to {message.author.name}"
             thread = await message.channel.create_thread(
                 name=thread_name,
                 message=message,
-                auto_archive_duration=60  # Auto-archive after 60 minutes of inactivity
+                auto_archive_duration=4320
             )
 
         messages = []
