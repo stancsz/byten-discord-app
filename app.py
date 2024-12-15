@@ -165,6 +165,16 @@ async def on_message(message):
         return
 
     try:
+        if message.thread:
+            thread = message.thread
+        else:
+            thread_name = f"Response to {message.author.name}"
+            thread = await message.channel.create_thread(
+                name=thread_name,
+                message=message,
+                auto_archive_duration=60  # Auto-archive after 60 minutes of inactivity
+            )
+
         messages = []
         async for msg in message.channel.history(limit=config["HISTORY_LIMIT"]):
             role = "assistant" if msg.author.bot else "user"
@@ -179,18 +189,17 @@ async def on_message(message):
 
         response = ai_response(config["MSG_PROMPT"], messages)
 
-        if "```" in response or len(response) > 4000:
-            short_response = response[:200] + '...' if len(response) > 200 else response
-
+        if len(response) > 2000:
             file_buffer = io.BytesIO(response.encode('utf-8'))
             file_buffer.seek(0)
-
             discord_file = discord.File(file_buffer, filename="response.txt")
 
-            await message.channel.send(content=short_response, file=discord_file)
-        else:
+            await thread.send(file=discord_file)
+
             for chunk in split_text(response):
-                await message.channel.send(chunk)
+                await thread.send(chunk)
+        else:
+            await thread.send(response)
 
     except Exception as e:
         print(f"Error in on_message: {str(e)}")
