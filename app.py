@@ -165,8 +165,8 @@ async def on_message(message):
         return
 
     try:
-        if message.thread:
-            thread = message.thread
+        if isinstance(message.channel, discord.Thread):
+            thread = message.channel
         else:
             thread_name = f"Response to {message.author.name}"
             thread = await message.channel.create_thread(
