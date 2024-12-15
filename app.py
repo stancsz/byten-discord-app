@@ -1,5 +1,5 @@
 import mimetypes
-import os
+import os, io
 import re
 import discord
 from discord.ext import commands
@@ -163,6 +163,7 @@ async def on_ready():
 async def on_message(message):
     if not should_reply_to_message(message):
         return
+
     try:
         messages = []
         async for msg in message.channel.history(limit=config["HISTORY_LIMIT"]):
@@ -177,11 +178,24 @@ async def on_message(message):
             messages.insert(0, {"role": role, "content": content})
 
         response = ai_response(config["MSG_PROMPT"], messages)
-        for chunk in split_text(response):
-            await message.channel.send(chunk)
+
+        if "```" in response or len(response) > 4000:
+            short_response = response[:200] + '...' if len(response) > 200 else response
+
+            file_buffer = io.BytesIO(response.encode('utf-8'))
+            file_buffer.seek(0)
+
+            discord_file = discord.File(file_buffer, filename="response.txt")
+
+            await message.channel.send(content=short_response, file=discord_file)
+        else:
+            for chunk in split_text(response):
+                await message.channel.send(chunk)
+
     except Exception as e:
         print(f"Error in on_message: {str(e)}")
         await message.channel.send(f"I couldn't process the request. Please try again later. Debug:{str(e)}")
+
     await bot.process_commands(message)
 
 bot.run(config["DISCORD_BOT_TOKEN"])
